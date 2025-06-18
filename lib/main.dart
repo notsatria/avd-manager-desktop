@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:emulator_manager/home_page/home_page.dart';
 import 'package:flutter/material.dart';
 
