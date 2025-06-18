@@ -1,8 +1,10 @@
 // The main page of the application.
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+// The main page of the application.
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -56,23 +58,50 @@ class _HomePageState extends State<HomePage> {
     return ''; // Default for other OSes
   }
 
+  /// Opens a system dialog to let the user pick the SDK directory.
+  Future<void> _pickSdkPath() async {
+    // Use the file_picker package to open a directory selection dialog.
+    String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+
+    // If the user selected a directory (didn't cancel), update the text field.
+    if (selectedDirectory != null) {
+      setState(() {
+        _sdkPathController.text = selectedDirectory;
+        _statusMessage = "SDK path updated. Refreshing lists...";
+      });
+      // After selecting a new path, automatically refresh the emulator lists.
+      _refreshAll();
+    } else {
+      // User canceled the picker
+      setState(() {
+        _statusMessage = "Folder selection canceled.";
+      });
+    }
+  }
+
   /// Executes a shell command and returns the result.
-  Future<ProcessResult> _runCommand(String executable, List<String> arguments) async {
+  Future<ProcessResult> _runCommand(
+    String executable,
+    List<String> arguments,
+  ) async {
     final result = await Process.run(executable, arguments, runInShell: true);
     if (result.exitCode != 0) {
       debugPrint('Error running command: ${result.stderr}');
     }
     return result;
   }
-  
+
   /// Asynchronously executes a command without waiting for it to finish.
-  Future<void> _runCommandAsync(String executable, List<String> arguments) async {
+  Future<void> _runCommandAsync(
+    String executable,
+    List<String> arguments,
+  ) async {
     try {
       await Process.start(executable, arguments, runInShell: true);
     } catch (e) {
-       setState(() {
-         _statusMessage = "Failed to launch process: $e";
-       });
+      setState(() {
+        _statusMessage = "Failed to launch process: $e";
+      });
     }
   }
 
@@ -88,8 +117,11 @@ class _HomePageState extends State<HomePage> {
 
     setState(() {
       _isLoading = false;
-      _statusMessage =
+      final status =
           "Found ${_availableAVDs.length} available and ${_runningEmulators.length} running emulators.";
+      // Avoid overwriting error messages from the fetch functions
+      if (_statusMessage.startsWith("Error")) return;
+      _statusMessage = status;
     });
   }
 
@@ -98,21 +130,25 @@ class _HomePageState extends State<HomePage> {
     final sdkPath = _sdkPathController.text;
     if (sdkPath.isEmpty) return;
 
-    final emulatorPath = '$sdkPath${Platform.pathSeparator}emulator${Platform.pathSeparator}emulator';
+    final emulatorPath =
+        '$sdkPath${Platform.pathSeparator}emulator${Platform.pathSeparator}emulator';
     final result = await _runCommand(emulatorPath, ['-list-avds']);
 
-    if (result.exitCode == 0) {
-      setState(() {
-        _availableAVDs = (result.stdout as String)
-            .split('\n')
-            .where((line) => line.isNotEmpty)
-            .toList();
-      });
-    } else {
-      setState(() {
-         _statusMessage = "Error finding emulators. Is the SDK path correct?";
-         _availableAVDs = [];
-      });
+    if (mounted) {
+      if (result.exitCode == 0) {
+        setState(() {
+          _availableAVDs =
+              (result.stdout as String)
+                  .split('\n')
+                  .where((line) => line.isNotEmpty)
+                  .toList();
+        });
+      } else {
+        setState(() {
+          _statusMessage = "Error finding emulators. Is the SDK path correct?";
+          _availableAVDs = [];
+        });
+      }
     }
   }
 
@@ -121,34 +157,43 @@ class _HomePageState extends State<HomePage> {
     final sdkPath = _sdkPathController.text;
     if (sdkPath.isEmpty) return;
 
-    final adbPath = '$sdkPath${Platform.pathSeparator}platform-tools${Platform.pathSeparator}adb';
+    final adbPath =
+        '$sdkPath${Platform.pathSeparator}platform-tools${Platform.pathSeparator}adb';
     final result = await _runCommand(adbPath, ['devices']);
 
-    if (result.exitCode == 0) {
-      setState(() {
-        _runningEmulators = (result.stdout as String)
-            .split('\n')
-            .where((line) => line.startsWith('emulator-'))
-            .map((line) => line.split(RegExp(r'\s+')).first)
-            .toList();
-      });
-    } else {
-      setState(() {
-         _statusMessage = "Error finding running devices via ADB.";
-         _runningEmulators = [];
-      });
+    if (mounted) {
+      if (result.exitCode == 0) {
+        setState(() {
+          _runningEmulators =
+              (result.stdout as String)
+                  .split('\n')
+                  .where((line) => line.startsWith('emulator-'))
+                  .map((line) => line.split(RegExp(r'\\s+')).first)
+                  .toList();
+        });
+      } else {
+        setState(() {
+          _statusMessage = "Error finding running devices via ADB.";
+          _runningEmulators = [];
+        });
+      }
     }
   }
-  
+
   /// Starts a specific AVD.
   Future<void> _runAVD(String avdName) async {
     setState(() => _statusMessage = "Starting emulator: $avdName...");
     final sdkPath = _sdkPathController.text;
-    final emulatorPath = '$sdkPath${Platform.pathSeparator}emulator${Platform.pathSeparator}emulator';
-    
+    final emulatorPath =
+        '$sdkPath${Platform.pathSeparator}emulator${Platform.pathSeparator}emulator';
+
     await _runCommandAsync(emulatorPath, ['-avd', avdName]);
-    
-    setState(() => _statusMessage = "Start command sent for $avdName. It may take a moment to launch.");
+
+    setState(
+      () =>
+          _statusMessage =
+              "Start command sent for $avdName. It may take a moment to launch.",
+    );
 
     // Refresh after a delay to allow the emulator to boot.
     Future.delayed(const Duration(seconds: 8), _refreshAll);
@@ -158,18 +203,19 @@ class _HomePageState extends State<HomePage> {
   Future<void> _stopEmulator(String emulatorId) async {
     setState(() => _statusMessage = "Stopping emulator: $emulatorId...");
     final sdkPath = _sdkPathController.text;
-    final adbPath = '$sdkPath${Platform.pathSeparator}platform-tools${Platform.pathSeparator}adb';
-    
+    final adbPath =
+        '$sdkPath${Platform.pathSeparator}platform-tools${Platform.pathSeparator}adb';
+
     await _runCommand(adbPath, ['-s', emulatorId, 'emu', 'kill']);
-    
+
     setState(() => _statusMessage = "Stop command sent to $emulatorId.");
-    
+
     // Refresh after a delay to see the updated list.
     Future.delayed(const Duration(seconds: 2), _refreshAll);
   }
 
   // --- UI Body ---
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -195,12 +241,13 @@ class _HomePageState extends State<HomePage> {
                       title: 'Available Emulators',
                       icon: Icons.phone_android_rounded,
                       emulators: _availableAVDs,
-                      actionButtonBuilder: (name) => _buildActionButton(
-                        label: 'Run',
-                        icon: Icons.play_circle_filled_rounded,
-                        color: Colors.green,
-                        onPressed: () => _runAVD(name),
-                      ),
+                      actionButtonBuilder:
+                          (name) => _buildActionButton(
+                            label: 'Run',
+                            icon: Icons.play_circle_filled_rounded,
+                            color: Colors.green,
+                            onPressed: () => _runAVD(name),
+                          ),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -209,12 +256,13 @@ class _HomePageState extends State<HomePage> {
                       title: 'Running Emulators',
                       icon: Icons.devices_rounded,
                       emulators: _runningEmulators,
-                      actionButtonBuilder: (id) => _buildActionButton(
-                        label: 'Stop',
-                        icon: Icons.stop_circle_rounded,
-                        color: Colors.red,
-                        onPressed: () => _stopEmulator(id),
-                      ),
+                      actionButtonBuilder:
+                          (id) => _buildActionButton(
+                            label: 'Stop',
+                            icon: Icons.stop_circle_rounded,
+                            color: Colors.red,
+                            onPressed: () => _stopEmulator(id),
+                          ),
                     ),
                   ),
                 ],
@@ -230,7 +278,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   // --- UI Builder Methods ---
-  
+
   Widget _buildHeader() {
     return Row(
       children: [
@@ -252,7 +300,7 @@ class _HomePageState extends State<HomePage> {
       ],
     );
   }
-  
+
   Widget _buildSdkPathInput() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -264,12 +312,31 @@ class _HomePageState extends State<HomePage> {
         const SizedBox(height: 8),
         TextField(
           controller: _sdkPathController,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            border: const OutlineInputBorder(),
             hintText: 'Enter the full path to your Android SDK',
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 14,
+            ),
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.folder_open_rounded),
+              onPressed: _pickSdkPath,
+              tooltip: 'Select SDK Folder',
+            ),
           ),
         ),
+        // This hint only shows on macOS.
+        if (Platform.isMacOS)
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0, left: 4.0),
+            child: Text(
+              "Hint: Can't see the 'Library' folder? Press 'Command + Shift + .' to show hidden folders in the file picker.",
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
+            ),
+          ),
       ],
     );
   }
@@ -297,21 +364,28 @@ class _HomePageState extends State<HomePage> {
           ),
           const Divider(height: 1),
           Expanded(
-            child: emulators.isEmpty
-                ? const Center(
-                    child: Text('No emulators found.',
-                        style: TextStyle(color: Colors.grey)))
-                : ListView.builder(
-                    itemCount: emulators.length,
-                    itemBuilder: (context, index) {
-                      final name = emulators[index];
-                      return ListTile(
-                        leading: const Icon(Icons.smartphone_rounded, size: 28),
-                        title: Text(name),
-                        trailing: actionButtonBuilder(name),
-                      );
-                    },
-                  ),
+            child:
+                emulators.isEmpty
+                    ? const Center(
+                      child: Text(
+                        'No emulators found.',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    )
+                    : ListView.builder(
+                      itemCount: emulators.length,
+                      itemBuilder: (context, index) {
+                        final name = emulators[index];
+                        return ListTile(
+                          leading: const Icon(
+                            Icons.smartphone_rounded,
+                            size: 28,
+                          ),
+                          title: Text(name),
+                          trailing: actionButtonBuilder(name),
+                        );
+                      },
+                    ),
           ),
         ],
       ),
@@ -336,7 +410,7 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-  
+
   Widget _buildFooter() {
     return Row(
       children: [
