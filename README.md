@@ -1,6 +1,6 @@
 # Android Emulator Manager
 
-![Emulator Manager Screenshot](https://placehold.co/800x450/2d3748/ffffff?text=App+Screenshot)
+![Emulator Manager Screenshot](https://github.com/user-attachments/assets/e9a92b9d-fcfa-409c-bb37-16f08e2e8fa8)
 
 A simple, fast, and cross-platform UI wrapper for managing your Android SDK emulators. Built with Flutter, it runs on macOS, Windows, and Linux.
 
