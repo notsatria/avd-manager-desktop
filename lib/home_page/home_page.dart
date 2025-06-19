@@ -1,6 +1,7 @@
 // The main page of the application.
 import 'dart:io';
 
+import 'package:avd_manager/utils/preference.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
@@ -37,13 +38,22 @@ class _HomePageState extends State<HomePage> {
     // Initialize the SDK path with a platform-specific default.
     _sdkPathController = TextEditingController(text: _getDefaultSdkPath());
     // Immediately refresh the lists when the app starts.
-    _refreshAll();
+    _loadSdkPath();
   }
 
   @override
   void dispose() {
     _sdkPathController.dispose();
     super.dispose();
+  }
+
+  /// Loads the SDK path from shared preferences and updates the text field.
+  Future<void> _loadSdkPath() async {
+    final sdkPath = await Preference.loadSdkPath(_getDefaultSdkPath());
+    setState(() {
+      _sdkPathController.text = sdkPath;
+    });
+    _refreshAll();
   }
 
   /// Returns the default path for the Android SDK based on the operating system.
@@ -65,6 +75,10 @@ class _HomePageState extends State<HomePage> {
 
     // If the user selected a directory (didn't cancel), update the text field.
     if (selectedDirectory != null) {
+      // Save the newly selected path for future sessions.
+      await Preference.saveSdkPath(selectedDirectory);
+
+      // Update the UI with the new path.
       setState(() {
         _sdkPathController.text = selectedDirectory;
         _statusMessage = "SDK path updated. Refreshing lists...";
