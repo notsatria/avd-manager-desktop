@@ -1,8 +1,15 @@
-import 'package:avd_manager/home_page/home_page.dart';
+import 'package:avd_manager/emulator/emulator_page.dart';
+import 'package:avd_manager/emulator/emulator_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 void main() {
-  runApp(const EmulatorManagerApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: ((context) => EmulatorProvider()),
+      child: EmulatorManagerApp(),
+    ),
+  );
 }
 
 // Main application widget.
@@ -30,8 +37,9 @@ class EmulatorManagerApp extends StatelessWidget {
         ),
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      themeMode: ThemeMode.system, // Automatically adapt to system's dark/light mode.
-      home: const HomePage(),
+      themeMode:
+          ThemeMode.system, // Automatically adapt to system's dark/light mode.
+      home: const EmulatorPage(),
       debugShowCheckedModeBanner: false, // Hides the debug banner.
     );
   }
