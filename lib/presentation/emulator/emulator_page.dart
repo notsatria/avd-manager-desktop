@@ -13,118 +13,63 @@ class EmulatorPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<EmulatorProvider>(
-      builder: (context, provider, child) {
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('Android Emulator Manager'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.wifi_tethering_rounded),
-                tooltip: 'Wireless Debugging',
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const WirelessDebuggingPage(),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 8),
-            ],
-          ),
-          body: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(context),
-                const SizedBox(height: 20),
+    final provider = context.watch<EmulatorProvider>();
 
-                _buildSdkPathInput(context, provider),
-                const SizedBox(height: 20),
-
-                Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _buildEmulatorListCard(
-                          context,
-                          title: 'Available Emulators',
-                          icon: Icons.phone_android_rounded,
-                          emulators: provider.availableAVDs,
-                          actionButtonBuilder:
-                              (name) => _buildActionButton(
-                                context,
-                                provider,
-                                label: 'Run',
-                                icon: Icons.play_circle_filled_rounded,
-                                color: Colors.green,
-                                onPressed: () => provider.runAVD(name),
-                              ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildEmulatorListCard(
-                          context,
-                          title: 'Running Emulators',
-                          icon: Icons.devices_rounded,
-                          emulators: provider.runningEmulators,
-                          actionButtonBuilder:
-                              (id) => _buildActionButton(
-                                context,
-                                provider,
-                                label: 'Stop',
-                                icon: Icons.stop_circle_rounded,
-                                color: Colors.red,
-                                onPressed: () => provider.stopEmulator(id),
-                              ),
-                        ),
-                      ),
-                    ],
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('AVD Manager'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.wifi_tethering_rounded),
+            tooltip: 'Wireless Debugging',
+            onPressed:
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const WirelessDebuggingPage(),
                   ),
                 ),
-                const SizedBox(height: 12),
-                // --- Footer ---
-                buildFooter(
-                  context: context,
-                  statusMessage: provider.statusMessage,
-                  isLoading: provider.isLoading,
-                  refreshAll: provider.refreshAll,
-                ),
-              ],
-            ),
           ),
-        );
-      },
-    );
-  }
-
-  // --- UI Builder Methods ---
-  Widget _buildHeader(BuildContext context) {
-    return Row(
-      children: [
-        const Icon(Icons.play_for_work_rounded, size: 40, color: Colors.blue),
-        const SizedBox(width: 12),
-        Column(
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Android Emulator Manager',
-              style: Theme.of(context).textTheme.headlineSmall,
+            _buildSdkPathInput(context, provider),
+            const SizedBox(height: 20),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: _buildEmulatorListCard(context, provider),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 3,
+                    child: _buildRunningDevicesCard(context, provider),
+                  ),
+                ],
+              ),
             ),
-            Text(
-              'A simple wrapper for Android SDK command-line tools.',
-              style: Theme.of(context).textTheme.bodySmall,
+            const SizedBox(height: 12),
+            buildFooter(
+              context: context,
+              statusMessage: provider.statusMessage,
+              isLoading: provider.isLoading,
+              refreshAll: provider.refreshAll,
             ),
           ],
         ),
-      ],
+      ),
     );
   }
 
+  // UI Builder Methods are the same as before...
   Widget _buildSdkPathInput(BuildContext context, EmulatorProvider provider) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -150,12 +95,11 @@ class EmulatorPage extends StatelessWidget {
             ),
           ),
         ),
-        // This hint only shows on macOS.
         if (Platform.isMacOS)
           Padding(
             padding: const EdgeInsets.only(top: 8.0, left: 4.0),
             child: Text(
-              "Hint: Can't see the 'Library' folder? Press 'Command + Shift + .' to show hidden folders in the file picker.",
+              "Hint: Can't see the 'Library' folder? Press 'Command + Shift + .' to show hidden folders.",
               style: Theme.of(
                 context,
               ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
@@ -166,12 +110,9 @@ class EmulatorPage extends StatelessWidget {
   }
 
   Widget _buildEmulatorListCard(
-    BuildContext context, {
-    required String title,
-    required IconData icon,
-    required List<String> emulators,
-    required Widget Function(String) actionButtonBuilder,
-  }) {
+    BuildContext context,
+    EmulatorProvider provider,
+  ) {
     return Card(
       elevation: 2,
       child: Column(
@@ -181,16 +122,22 @@ class EmulatorPage extends StatelessWidget {
             padding: const EdgeInsets.all(12.0),
             child: Row(
               children: [
-                Icon(icon, color: Theme.of(context).colorScheme.primary),
+                Icon(
+                  Icons.phone_android_rounded,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 const SizedBox(width: 8),
-                Text(title, style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  "Available Emulators",
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
               ],
             ),
           ),
           const Divider(height: 1),
           Expanded(
             child:
-                emulators.isEmpty
+                provider.availableEmulators.isEmpty
                     ? const Center(
                       child: Text(
                         'No emulators found.',
@@ -198,16 +145,22 @@ class EmulatorPage extends StatelessWidget {
                       ),
                     )
                     : ListView.builder(
-                      itemCount: emulators.length,
+                      itemCount: provider.availableEmulators.length,
                       itemBuilder: (context, index) {
-                        final name = emulators[index];
+                        final name = provider.availableEmulators[index];
                         return ListTile(
                           leading: const Icon(
                             Icons.smartphone_rounded,
                             size: 28,
                           ),
                           title: Text(name),
-                          trailing: actionButtonBuilder(name),
+                          trailing: _buildActionButton(
+                            label: 'Run',
+                            icon: Icons.play_circle_filled_rounded,
+                            color: Colors.green,
+                            isLoading: provider.isLoading,
+                            onPressed: () => provider.runEmulator(name),
+                          ),
                         );
                       },
                     ),
@@ -217,18 +170,84 @@ class EmulatorPage extends StatelessWidget {
     );
   }
 
-  Widget _buildActionButton(
+  Widget _buildRunningDevicesCard(
     BuildContext context,
-    EmulatorProvider provider, {
+    EmulatorProvider provider,
+  ) {
+    return Card(
+      elevation: 2,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.devices_rounded,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  "Running Devices",
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child:
+                provider.runningDevices.isEmpty
+                    ? const Center(
+                      child: Text(
+                        'No devices found.',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    )
+                    : ListView.builder(
+                      itemCount: provider.runningDevices.length,
+                      itemBuilder: (context, index) {
+                        final device = provider.runningDevices[index];
+                        return ListTile(
+                          leading: Icon(
+                            device.isWireless
+                                ? Icons.wifi_rounded
+                                : Icons.smartphone_rounded,
+                            size: 28,
+                          ),
+                          title: Text(device.id),
+                          trailing: _buildActionButton(
+                            label: device.isWireless ? 'Disconnect' : 'Stop',
+                            icon:
+                                device.isWireless
+                                    ? Icons.wifi_off_rounded
+                                    : Icons.stop_circle_rounded,
+                            color: Colors.red,
+                            isLoading: provider.isLoading,
+                            onPressed:
+                                () => provider.stopOrDisconnectDevice(device),
+                          ),
+                        );
+                      },
+                    ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
     required String label,
     required IconData icon,
     required Color color,
+    required bool isLoading,
     required VoidCallback onPressed,
   }) {
     return ElevatedButton.icon(
       icon: Icon(icon, size: 18),
       label: Text(label),
-      onPressed: provider.isLoading ? null : onPressed,
+      onPressed: isLoading ? null : onPressed,
       style: ElevatedButton.styleFrom(
         foregroundColor: Colors.white,
         backgroundColor: color,

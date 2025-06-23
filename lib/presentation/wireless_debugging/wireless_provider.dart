@@ -6,12 +6,14 @@ import 'package:flutter/material.dart';
 class WirelessProvider extends ChangeNotifier {
   final EmulatorProvider _emulatorProvider;
   final TextEditingController ipAddressController = TextEditingController();
+  final TextEditingController portController = TextEditingController(text: '5555');
 
   WirelessProvider(this._emulatorProvider);
 
   @override
   void dispose() {
     ipAddressController.dispose();
+    portController.dispose();
     super.dispose();
   }
 
@@ -21,10 +23,15 @@ class WirelessProvider extends ChangeNotifier {
   }
 
   Future<void> enableWirelessMode() async {
-    _emulatorProvider.statusMessage = "Attempting to enable wireless mode (tcpip:5555)...";
-    final result = await _emulatorProvider.runCommand(_adbPath, ['tcpip', '5555']);
+    final port = portController.text.trim();
+    if (port.isEmpty) {
+        _emulatorProvider.statusMessage = "Port number cannot be empty.";
+        return;
+    }
+    _emulatorProvider.statusMessage = "Attempting to enable wireless mode (tcpip:$port)...";
+    final result = await _emulatorProvider.runCommand(_adbPath, ['tcpip', port]);
     if (result.stdout.toString().contains('restarting')) {
-      _emulatorProvider.statusMessage = "Wireless mode enabled. Now connect to your device's IP.";
+      _emulatorProvider.statusMessage = "Wireless mode enabled on port $port. Now connect to your device's IP.";
     } else {
       _emulatorProvider.statusMessage = "Error: Is a device connected via USB?";
     }
@@ -32,17 +39,22 @@ class WirelessProvider extends ChangeNotifier {
 
   Future<void> connectToIp() async {
     final ip = ipAddressController.text.trim();
+    final port = portController.text.trim();
     if (ip.isEmpty) {
       _emulatorProvider.statusMessage = "Please enter an IP address.";
       return;
     }
-    _emulatorProvider.statusMessage = "Connecting to $ip...";
-    await _emulatorProvider.runCommand(_adbPath, ['connect', '$ip:5555']);
-    _emulatorProvider.statusMessage = "Connection command sent to $ip.";
+    if (port.isEmpty) {
+      _emulatorProvider.statusMessage = "Please enter a port number.";
+      return;
+    }
+    _emulatorProvider.statusMessage = "Connecting to $ip:$port...";
+    await _emulatorProvider.runCommand(_adbPath, ['connect', '$ip:$port']);
+    _emulatorProvider.statusMessage = "Connection command sent to $ip:$port.";
     Future.delayed(const Duration(seconds: 2), _emulatorProvider.refreshAll);
   }
 
-    Future<void> disconnectAll() async {
+  Future<void> disconnectAll() async {
     _emulatorProvider.statusMessage = "Disconnecting all wireless devices...";
     await _emulatorProvider.runCommand(_adbPath, ['disconnect']);
     _emulatorProvider.statusMessage = "Disconnect command sent.";

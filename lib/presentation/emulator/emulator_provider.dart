@@ -2,16 +2,17 @@
 // This class holds all the application's state and business logic.
 import 'dart:io';
 
+import 'package:avd_manager/models/device.dart';
 import 'package:avd_manager/utils/preference.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 class EmulatorProvider extends ChangeNotifier {
-  List<String> _availableAVDs = [];
-  List<String> get availableAVDs => _availableAVDs;
+  List<Device> _runningDevices = [];
+  List<Device> get runningDevices => _runningDevices;
 
-  List<String> _runningEmulators = [];
-  List<String> get runningEmulators => _runningEmulators;
+  List<String> _availableEmulators = [];
+  List<String> get availableEmulators => _availableEmulators;
 
   String _statusMessage = "Welcome! Click 'Refresh' to find emulators.";
   String get statusMessage => _statusMessage;
@@ -42,11 +43,11 @@ class EmulatorProvider extends ChangeNotifier {
   String _getDefaultSdkPath() {
     if (Platform.isMacOS) {
       return '${Platform.environment['HOME']}/Library/Android/sdk';
-    } else if (Platform.isWindows) {
-      return '${Platform.environment['LOCALAPPDATA']}\\Android\\Sdk';
-    } else if (Platform.isLinux) {
-      return '${Platform.environment['HOME']}/Android/sdk';
     }
+    if (Platform.isWindows) {
+      return '${Platform.environment['LOCALAPPDATA']}\\Android\\Sdk';
+    }
+    if (Platform.isLinux) return '${Platform.environment['HOME']}/Android/sdk';
     return '';
   }
 
@@ -99,89 +100,90 @@ class EmulatorProvider extends ChangeNotifier {
     _statusMessage = "Searching for emulators...";
     notifyListeners();
 
-    await _fetchAvailableAVDs();
-    await _fetchRunningEmulators();
+    await _fetchAvailableEmulators();
+    await _fetchRunningDevices();
 
     _isLoading = false;
+    _isLoading = false;
     final status =
-        "Found ${_availableAVDs.length} available and ${_runningEmulators.length} running emulators.";
+        "Found ${_availableEmulators.length} emulators and ${_runningDevices.length} running devices.";
     if (!_statusMessage.startsWith("Error")) {
-      _statusMessage = status;
+      statusMessage = status;
+    } else {
+      notifyListeners();
     }
-    notifyListeners();
   }
 
-  /// Run commands to fetch for available AVDs
-  Future<void> _fetchAvailableAVDs() async {
+  Future<void> _fetchAvailableEmulators() async {
     final sdkPath = sdkPathController.text;
     final emulatorPath =
         '$sdkPath${Platform.pathSeparator}emulator${Platform.pathSeparator}emulator';
     final result = await runCommand(emulatorPath, ['-list-avds']);
 
     if (result.exitCode == 0) {
-      _availableAVDs =
+      _availableEmulators =
           (result.stdout as String)
               .split('\n')
               .where((line) => line.isNotEmpty)
               .toList();
     } else {
       _statusMessage = "Error finding emulators. Is the SDK path correct?";
-      _availableAVDs = [];
+      _availableEmulators = [];
     }
-    notifyListeners();
   }
 
-  /// Run comman to fetch running emulators
-  Future<void> _fetchRunningEmulators() async {
+  Future<void> _fetchRunningDevices() async {
     final sdkPath = sdkPathController.text;
     final adbPath =
         '$sdkPath${Platform.pathSeparator}platform-tools${Platform.pathSeparator}adb';
     final result = await runCommand(adbPath, ['devices']);
 
     if (result.exitCode == 0) {
-      _runningEmulators =
+      _runningDevices =
           (result.stdout as String)
               .split('\n')
-              .where((line) => line.startsWith('emulator-'))
-              .map((line) => line.split(RegExp(r'\\s+')).first)
+              .map((line) => line.trim())
+              .where(
+                (line) =>
+                    line.isNotEmpty && !line.startsWith('List of devices'),
+              )
+              .map((line) {
+                final id = line.split(RegExp(r'\\s+')).first;
+                final isWireless = id.contains(':');
+                return Device(id: id, isWireless: isWireless);
+              })
               .toList();
     } else {
       _statusMessage = "Error finding running devices via ADB.";
-      _runningEmulators = [];
+      _runningDevices = [];
     }
-    notifyListeners();
   }
 
-  /// Run command to start AVD
-  Future<void> runAVD(String avdName) async {
-    _statusMessage = "Starting emulator: $avdName...";
-    notifyListeners();
-
+  Future<void> runEmulator(String avdName) async {
+    statusMessage = "Starting emulator: $avdName...";
     final sdkPath = sdkPathController.text;
     final emulatorPath =
         '$sdkPath${Platform.pathSeparator}emulator${Platform.pathSeparator}emulator';
     await runCommandAsync(emulatorPath, ['-avd', avdName]);
-
-    _statusMessage =
+    statusMessage =
         "Start command sent for $avdName. It may take a moment to launch.";
-    notifyListeners();
-
     Future.delayed(const Duration(seconds: 8), refreshAll);
   }
 
-  /// Run command to stop emulator
-  Future<void> stopEmulator(String emulatorId) async {
-    _statusMessage = "Stopping emulator: $emulatorId...";
-    notifyListeners();
-
+  Future<void> stopOrDisconnectDevice(Device device) async {
     final sdkPath = sdkPathController.text;
     final adbPath =
         '$sdkPath${Platform.pathSeparator}platform-tools${Platform.pathSeparator}adb';
-    await runCommand(adbPath, ['-s', emulatorId, 'emu', 'kill']);
 
-    _statusMessage = "Stop command sent to $emulatorId.";
-    notifyListeners();
-
+    if (device.isWireless) {
+      statusMessage = "Disconnecting from ${device.id}...";
+      await runCommand(adbPath, ['disconnect', device.id]);
+      statusMessage = "Disconnected from ${device.id}.";
+    } else {
+      statusMessage = "Stopping emulator: ${device.id}...";
+      await runCommand(adbPath, ['-s', device.id, 'emu', 'kill']);
+      statusMessage = "Stop command sent to ${device.id}.";
+    }
     Future.delayed(const Duration(seconds: 2), refreshAll);
   }
 }

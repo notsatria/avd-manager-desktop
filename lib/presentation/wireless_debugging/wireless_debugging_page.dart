@@ -55,11 +55,24 @@ class WirelessDebuggingPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
+                  flex: 3,
                   child: TextField(
                     controller: wirelessProvider.ipAddressController,
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                       labelText: 'Device IP Address',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 2,
+                  child: TextField(
+                    controller: wirelessProvider.portController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: 'Port',
                     ),
                   ),
                 ),
