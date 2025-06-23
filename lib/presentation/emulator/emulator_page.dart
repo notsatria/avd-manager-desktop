@@ -1,7 +1,9 @@
 // The main page of the application.
 import 'dart:io';
 
-import 'package:avd_manager/emulator/emulator_provider.dart';
+import 'package:avd_manager/presentation/emulator/emulator_provider.dart';
+import 'package:avd_manager/presentation/widgets/footer.dart';
+import 'package:avd_manager/presentation/wireless_debugging/wireless_debugging_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -14,6 +16,24 @@ class EmulatorPage extends StatelessWidget {
     return Consumer<EmulatorProvider>(
       builder: (context, provider, child) {
         return Scaffold(
+          appBar: AppBar(
+            title: const Text('Android Emulator Manager'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.wifi_tethering_rounded),
+                tooltip: 'Wireless Debugging',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const WirelessDebuggingPage(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 8),
+            ],
+          ),
           body: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -68,7 +88,12 @@ class EmulatorPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 // --- Footer ---
-                _buildFooter(context, provider),
+                buildFooter(
+                  context: context,
+                  statusMessage: provider.statusMessage,
+                  isLoading: provider.isLoading,
+                  refreshAll: provider.refreshAll,
+                ),
               ],
             ),
           ),
@@ -210,33 +235,6 @@ class EmulatorPage extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         padding: const EdgeInsets.symmetric(horizontal: 12),
       ),
-    );
-  }
-
-  Widget _buildFooter(BuildContext context, EmulatorProvider provider) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            provider.statusMessage,
-            style: Theme.of(context).textTheme.bodySmall,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        const SizedBox(width: 16),
-        if (provider.isLoading)
-          const SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2.5),
-          ),
-        const SizedBox(width: 16),
-        FilledButton.icon(
-          onPressed: provider.isLoading ? null : provider.refreshAll,
-          icon: const Icon(Icons.refresh_rounded),
-          label: const Text('Refresh'),
-        ),
-      ],
     );
   }
 }

@@ -1,13 +1,26 @@
-import 'package:avd_manager/emulator/emulator_page.dart';
-import 'package:avd_manager/emulator/emulator_provider.dart';
+import 'package:avd_manager/presentation/emulator/emulator_page.dart';
+import 'package:avd_manager/presentation/emulator/emulator_provider.dart';
+import 'package:avd_manager/presentation/wireless_debugging/wireless_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 void main() {
   runApp(
-    ChangeNotifierProvider(
-      create: ((context) => EmulatorProvider()),
-      child: EmulatorManagerApp(),
+    MultiProvider(
+      providers: [
+        // Provider for core emulator/device list and SDK path logic.
+        ChangeNotifierProvider(create: (context) => EmulatorProvider()),
+        // Provider for wireless-specific logic. It depends on EmulatorProvider
+        // to get the SDK path for running ADB commands.
+        ChangeNotifierProxyProvider<EmulatorProvider, WirelessProvider>(
+          create:
+              (context) => WirelessProvider(context.read<EmulatorProvider>()),
+          update:
+              (context, emulatorProvider, wirelessProvider) =>
+                  WirelessProvider(emulatorProvider),
+        ),
+      ],
+      child: const EmulatorManagerApp(),
     ),
   );
 }

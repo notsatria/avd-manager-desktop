@@ -15,6 +15,10 @@ class EmulatorProvider extends ChangeNotifier {
 
   String _statusMessage = "Welcome! Click 'Refresh' to find emulators.";
   String get statusMessage => _statusMessage;
+  set statusMessage(String message) {
+    _statusMessage = message;
+    notifyListeners();
+  }
 
   final TextEditingController sdkPathController = TextEditingController();
 
@@ -63,7 +67,7 @@ class EmulatorProvider extends ChangeNotifier {
   }
 
   /// Run command in terminal
-  Future<ProcessResult> _runCommand(
+  Future<ProcessResult> runCommand(
     String executable,
     List<String> arguments,
   ) async {
@@ -71,7 +75,7 @@ class EmulatorProvider extends ChangeNotifier {
   }
 
   /// Run comman asynchronously
-  Future<void> _runCommandAsync(
+  Future<void> runCommandAsync(
     String executable,
     List<String> arguments,
   ) async {
@@ -112,7 +116,7 @@ class EmulatorProvider extends ChangeNotifier {
     final sdkPath = sdkPathController.text;
     final emulatorPath =
         '$sdkPath${Platform.pathSeparator}emulator${Platform.pathSeparator}emulator';
-    final result = await _runCommand(emulatorPath, ['-list-avds']);
+    final result = await runCommand(emulatorPath, ['-list-avds']);
 
     if (result.exitCode == 0) {
       _availableAVDs =
@@ -132,7 +136,7 @@ class EmulatorProvider extends ChangeNotifier {
     final sdkPath = sdkPathController.text;
     final adbPath =
         '$sdkPath${Platform.pathSeparator}platform-tools${Platform.pathSeparator}adb';
-    final result = await _runCommand(adbPath, ['devices']);
+    final result = await runCommand(adbPath, ['devices']);
 
     if (result.exitCode == 0) {
       _runningEmulators =
@@ -156,7 +160,7 @@ class EmulatorProvider extends ChangeNotifier {
     final sdkPath = sdkPathController.text;
     final emulatorPath =
         '$sdkPath${Platform.pathSeparator}emulator${Platform.pathSeparator}emulator';
-    await _runCommandAsync(emulatorPath, ['-avd', avdName]);
+    await runCommandAsync(emulatorPath, ['-avd', avdName]);
 
     _statusMessage =
         "Start command sent for $avdName. It may take a moment to launch.";
@@ -173,7 +177,7 @@ class EmulatorProvider extends ChangeNotifier {
     final sdkPath = sdkPathController.text;
     final adbPath =
         '$sdkPath${Platform.pathSeparator}platform-tools${Platform.pathSeparator}adb';
-    await _runCommand(adbPath, ['-s', emulatorId, 'emu', 'kill']);
+    await runCommand(adbPath, ['-s', emulatorId, 'emu', 'kill']);
 
     _statusMessage = "Stop command sent to $emulatorId.";
     notifyListeners();
